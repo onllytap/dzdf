@@ -1,0 +1,111 @@
+-- Chargement de la bibliothèque KYRYLO-UI
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local CurrentCamera = Workspace.CurrentCamera
+
+-- Chargement de la bibliothèque KYRYLO-UI
+local KUI = require(ReplicatedStorage:WaitForChild("KUI_Library"))
+
+-- Initialisation de l'interface utilisateur
+KUI.Init(LocalPlayer.PlayerGui, 50, 20)
+
+-- Création de la fenêtre principale
+local Window = KUI.Window.new("Aimbot Settings")
+Window:Show()
+Window:SetCorner(10)
+Window:SetHeader("Aimbot Configuration", { true, "close" })
+
+-- Lignes de l'interface
+local FovLine = KUI.Line.new("FOV Settings", 3)
+local LockLine = KUI.Line.new("Lock Settings", 2)
+Window:SetLines({ FovLine, LockLine })
+
+-- Composants de l'interface
+local FovSlider = KUI.Slider.new("FOV Radius", 1, 100, 50) -- Slider pour le FOV
+local LockToggle = KUI.Toggle.new("Lock Players", false) -- Toggle pour le verrouillage des joueurs
+FovLine:AddComponent(FovSlider)
+LockLine:AddComponent(LockToggle)
+
+-- Variables globales
+getgenv().AimbotSettings = {
+    Fov = FovSlider:GetValue(),
+    LockPlayers = LockToggle:GetState(),
+    HitboxSize = Vector3.new(5, 5, 5), -- Taille de la hitbox
+    WallCheck = true, -- Activation du wall check
+    Color = Color3.fromRGB(255, 0, 0) -- Couleur du cercle FOV
+}
+
+-- Mise à jour des paramètres en temps réel
+FovSlider.OnValueChanged:Connect(function(value)
+    getgenv().AimbotSettings.Fov = value
+end)
+
+LockToggle.OnStateChanged:Connect(function(state)
+    getgenv().AimbotSettings.LockPlayers = state
+end)
+
+-- Fonction pour vérifier si une partie du personnage est visible
+local function IsPartVisible(part)
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local origin = CurrentCamera.CFrame.Position
+    local direction = (part.Position - origin).unit * (part.Position - origin).magnitude
+    local ray = Ray.new(origin, direction)
+    local hit, position = Workspace:FindPartOnRay(ray, character)
+    return hit and hit:IsDescendantOf(part.Parent)
+end
+
+-- Fonction pour mettre à jour le cercle FOV
+local circle = Drawing.new("Circle")
+circle.Thickness = 2
+circle.NumSides = 100
+circle.Filled = false
+circle.Color = getgenv().AimbotSettings.Color
+
+local function UpdateCircle()
+    circle.Radius = getgenv().AimbotSettings.Fov * 3
+    circle.Position = Vector2.new(Mouse.X, Mouse.Y + GuiService:GetGuiInset().Y)
+    circle.Visible = true
+end
+
+RunService.RenderStepped:Connect(UpdateCircle)
+
+-- Fonction principale de l'aimbot
+local function Aimbot()
+    local closestPlayer = nil
+    local shortestDistance = getgenv().AimbotSettings.Fov * 3
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local partPos, onScreen = CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(partPos.X, partPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).magnitude
+                if distance < shortestDistance then
+                    if getgenv().AimbotSettings.WallCheck and not IsPartVisible(player.Character.HumanoidRootPart) then
+                        continue
+                    end
+                    shortestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+
+    if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local targetPart = closestPlayer.Character.HumanoidRootPart
+        targetPart.Size = getgenv().AimbotSettings.HitboxSize
+        Mouse.TargetFilter = targetPart
+        if getgenv().AimbotSettings.LockPlayers then
+            Mouse.Move:Connect(function()
+                local targetPos = CurrentCamera:WorldToViewportPoint(targetPart.Position)
+                mousemoverel((targetPos.X - Mouse.X) / 2, (targetPos.Y - Mouse.Y) / 2)
+            end)
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(Aimbot)
