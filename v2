@@ -1,111 +1,163 @@
--- Chargement de la bibliothèque KYRYLO-UI
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
-local GuiService = game:GetService("GuiService")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local CurrentCamera = Workspace.CurrentCamera
+local Playersaimbot = nil
+local mouse = game.Players.LocalPlayer:GetMouse()
+local guiservice = game:GetService("GuiService")
+local players = game:GetService("Players")
+local localPlayer = players.LocalPlayer
+local currentCamera = game:GetService("Workspace").CurrentCamera
+local circle = Drawing.new("Circle")
 
--- Chargement de la bibliothèque KYRYLO-UI
-local KUI = require(ReplicatedStorage:WaitForChild("KUI_Library"))
-
--- Initialisation de l'interface utilisateur
-KUI.Init(LocalPlayer.PlayerGui, 50, 20)
-
--- Création de la fenêtre principale
-local Window = KUI.Window.new("Aimbot Settings")
-Window:Show()
-Window:SetCorner(10)
-Window:SetHeader("Aimbot Configuration", { true, "close" })
-
--- Lignes de l'interface
-local FovLine = KUI.Line.new("FOV Settings", 3)
-local LockLine = KUI.Line.new("Lock Settings", 2)
-Window:SetLines({ FovLine, LockLine })
-
--- Composants de l'interface
-local FovSlider = KUI.Slider.new("FOV Radius", 1, 100, 50) -- Slider pour le FOV
-local LockToggle = KUI.Toggle.new("Lock Players", false) -- Toggle pour le verrouillage des joueurs
-FovLine:AddComponent(FovSlider)
-LockLine:AddComponent(LockToggle)
-
--- Variables globales
-getgenv().AimbotSettings = {
-    Fov = FovSlider:GetValue(),
-    LockPlayers = LockToggle:GetState(),
-    HitboxSize = Vector3.new(5, 5, 5), -- Taille de la hitbox
-    WallCheck = true, -- Activation du wall check
-    Color = Color3.fromRGB(255, 0, 0) -- Couleur du cercle FOV
-}
-
--- Mise à jour des paramètres en temps réel
-FovSlider.OnValueChanged:Connect(function(value)
-    getgenv().AimbotSettings.Fov = value
-end)
-
-LockToggle.OnStateChanged:Connect(function(state)
-    getgenv().AimbotSettings.LockPlayers = state
-end)
-
--- Fonction pour vérifier si une partie du personnage est visible
-local function IsPartVisible(part)
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local origin = CurrentCamera.CFrame.Position
-    local direction = (part.Position - origin).unit * (part.Position - origin).magnitude
-    local ray = Ray.new(origin, direction)
-    local hit, position = Workspace:FindPartOnRay(ray, character)
-    return hit and hit:IsDescendantOf(part.Parent)
+-- Suppression de l'ancien GUI s'il existe
+if game:GetService("CoreGui"):FindFirstChild('infoplayers') then 
+    game:GetService("CoreGui"):FindFirstChild('infoplayers'):Destroy()
 end
+
+-- Création du ScreenGui
+local infoplayers = Instance.new("ScreenGui")
+local Main = Instance.new("Frame")
+local MainCorner = Instance.new("UICorner")
+local Profile = Instance.new("Frame")
+local ProfileCorner = Instance.new("UICorner")
+local ImageProfile = Instance.new("ImageLabel")
+local ImageProfileCorner = Instance.new("UICorner")
+local HealthPlayers = Instance.new("TextLabel")
+local NamePlayers = Instance.new("TextLabel")
+local lockPlayersLabel = Instance.new("TextLabel")
+local Healthbar = Instance.new("Frame")
+local HealthbarCorner = Instance.new("UICorner")
+local Healthgreen = Instance.new("Frame")
+local HealthgreenCorner = Instance.new("UICorner")
+
+-- Paramètres du menu
+infoplayers.Name = "infoplayers"
+infoplayers.Parent = game:GetService("CoreGui")
+infoplayers.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+Main.Name = "Main"
+Main.Parent = infoplayers
+Main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Main.Position = UDim2.new(0.01, 0, 0.3, 0)
+Main.Size = UDim2.new(0, 300, 0, 160)
+
+MainCorner.Name = "MainCorner"
+MainCorner.Parent = Main
+
+Profile.Name = "Profile"
+Profile.Parent = Main
+Profile.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Profile.Position = UDim2.new(0.05, 0, 0.15, 0)
+Profile.Size = UDim2.new(0, 70, 0, 70)
+
+ProfileCorner.CornerRadius = UDim.new(0, 100)
+ProfileCorner.Name = "ProfileCorner"
+ProfileCorner.Parent = Profile
+
+ImageProfile.Name = "ImageProfile"
+ImageProfile.Parent = Profile
+ImageProfile.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ImageProfile.Position = UDim2.new(0, 1, 0, 1)
+ImageProfile.Size = UDim2.new(0, 68, 0, 68)
+ImageProfile.Image = ""
+
+ImageProfileCorner.CornerRadius = UDim.new(0, 100)
+ImageProfileCorner.Name = "ImageProfileCorner"
+ImageProfileCorner.Parent = ImageProfile
+
+HealthPlayers.Name = "HealthPlayers"
+HealthPlayers.Parent = Profile
+HealthPlayers.BackgroundTransparency = 1.000
+HealthPlayers.Position = UDim2.new(1.3, 0, 0.4, 0)
+HealthPlayers.Size = UDim2.new(0, 180, 0, 22)
+HealthPlayers.Font = Enum.Font.FredokaOne
+HealthPlayers.Text = "Health | N/A"
+HealthPlayers.TextColor3 = Color3.fromRGB(255, 255, 255)
+HealthPlayers.TextSize = 20.000
+HealthPlayers.TextXAlignment = Enum.TextXAlignment.Left
+
+lockPlayersLabel.Name = "lockPlayersLabel"
+lockPlayersLabel.Parent = Profile
+lockPlayersLabel.BackgroundTransparency = 1.000
+lockPlayersLabel.Position = UDim2.new(0.1, 0, 1.3, 0)
+lockPlayersLabel.Size = UDim2.new(0, 173, 0, 22)
+lockPlayersLabel.Font = Enum.Font.FredokaOne
+lockPlayersLabel.Text = "Lock Players | OFF"
+lockPlayersLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+lockPlayersLabel.TextSize = 19.000
+lockPlayersLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+NamePlayers.Name = "NamePlayers"
+NamePlayers.Parent = Profile
+NamePlayers.BackgroundTransparency = 1.000
+NamePlayers.Position = UDim2.new(1.3, 0, 0.1, 0)
+NamePlayers.Size = UDim2.new(0, 173, 0, 22)
+NamePlayers.Font = Enum.Font.FredokaOne
+NamePlayers.Text = "Name | N/A"
+NamePlayers.TextColor3 = Color3.fromRGB(255, 255, 255)
+NamePlayers.TextSize = 20.000
+
+-- Barre de vie
+Healthbar.Name = "Healthbar"
+Healthbar.Parent = Profile
+Healthbar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Healthbar.Position = UDim2.new(1.3, 0, 0.9, 0)
+Healthbar.Size = UDim2.new(0, 155, 0, 10)
+
+HealthbarCorner.Name = "HealthbarCorner"
+HealthbarCorner.Parent = Healthbar
+
+Healthgreen.Name = "Healthgreen"
+Healthgreen.Parent = Healthbar
+Healthgreen.BackgroundColor3 = Color3.fromRGB(0, 227, 110)
+Healthgreen.Size = UDim2.new(1, 0, 1, 0)
+
+HealthgreenCorner.Name = "HealthgreenCorner"
+HealthgreenCorner.Parent = Healthgreen
 
 -- Fonction pour mettre à jour le cercle FOV
-local circle = Drawing.new("Circle")
-circle.Thickness = 2
-circle.NumSides = 100
-circle.Filled = false
-circle.Color = getgenv().AimbotSettings.Color
-
-local function UpdateCircle()
-    circle.Radius = getgenv().AimbotSettings.Fov * 3
-    circle.Position = Vector2.new(Mouse.X, Mouse.Y + GuiService:GetGuiInset().Y)
-    circle.Visible = true
+function updateCircle(Fov, colorCircle)
+   circle.Transparency = 1
+   circle.Visible = true
+   circle.Thickness = 2
+   circle.Color = colorCircle
+   circle.NumSides = 100
+   circle.Radius = Fov * 3
+   circle.Filled = false
+   circle.Position = Vector2.new(mouse.X, mouse.Y + guiservice:GetGuiInset().Y)
 end
 
-RunService.RenderStepped:Connect(UpdateCircle)
+spawn(function()
+    game:GetService("RunService").RenderStepped:Connect(function()
+        pcall(function()
+            updateCircle(getgenv().Fov or 100, Color3.fromRGB(255, 0, 0))
+        end)
+    end)
+end)
 
--- Fonction principale de l'aimbot
-local function Aimbot()
-    local closestPlayer = nil
-    local shortestDistance = getgenv().AimbotSettings.Fov * 3
+-- Système de lock avec vérification de murs
+local function WallCheck(target)
+    local origin = currentCamera.CFrame.Position
+    local direction = (target.Position - origin).unit * (target.Position - origin).Magnitude
+    local ray = Ray.new(origin, direction)
+    local hit = workspace:FindPartOnRay(ray, localPlayer.Character)
+    return hit == nil or hit:IsDescendantOf(target.Parent)
+end
 
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local partPos, onScreen = CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            if onScreen then
-                local distance = (Vector2.new(partPos.X, partPos.Y) - Vector2.new(Mouse.X, Mouse.Y)).magnitude
-                if distance < shortestDistance then
-                    if getgenv().AimbotSettings.WallCheck and not IsPartVisible(player.Character.HumanoidRootPart) then
-                        continue
-                    end
-                    shortestDistance = distance
-                    closestPlayer = player
+spawn(function()
+    while wait() do
+        for _, v in pairs(players:GetPlayers()) do
+            if v ~= localPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                local rootPart = v.Character.HumanoidRootPart
+                if WallCheck(rootPart) and (rootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude <= 1000 then
+                    Playersaimbot = v.Name
+                    rootPart.Size = Vector3.new(5, 5, 5)
                 end
             end
         end
     end
+end)
 
-    if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local targetPart = closestPlayer.Character.HumanoidRootPart
-        targetPart.Size = getgenv().AimbotSettings.HitboxSize
-        Mouse.TargetFilter = targetPart
-        if getgenv().AimbotSettings.LockPlayers then
-            Mouse.Move:Connect(function()
-                local targetPos = CurrentCamera:WorldToViewportPoint(targetPart.Position)
-                mousemoverel((targetPos.X - Mouse.X) / 2, (targetPos.Y - Mouse.Y) / 2)
-            end)
-        end
+game:GetService("UserInputService").InputBegan:Connect(function(io)
+    if io.KeyCode == Enum.KeyCode.F then
+        getgenv().LockPlayers = not getgenv().LockPlayers
+        lockPlayersLabel.Text = "Lock Players | " .. (getgenv().LockPlayers and "ON" or "OFF")
     end
-end
-
-RunService.RenderStepped:Connect(Aimbot)
+end)
